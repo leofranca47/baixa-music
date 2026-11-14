@@ -25,7 +25,7 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 if os.path.isdir(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def get_index():
     index_file = os.path.join(STATIC_DIR, "index.html")
     if not os.path.exists(index_file):
