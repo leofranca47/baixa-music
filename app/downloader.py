@@ -23,6 +23,26 @@ def _cookies_tem_login(caminho: str) -> bool:
 
 MAX_COOKIES_SIZE = 100 * 1024  # limite de upload do cookies.txt
 
+def _caminho_backup_cookies() -> str:
+    return YTDLP_COOKIES_FILE + ".valido"
+
+def restaurar_cookies_se_sobrescrito() -> None:
+    """
+    Se o cookies.txt atual perdeu a sessão logada mas existe backup do
+    último upload validado, restaura o backup — o arquivo pode ser
+    sobrescrito por canais externos (ex.: reenvio por outro canal),
+    derrubando um cookies válido que já estava funcionando.
+    """
+    if not os.path.isfile(YTDLP_COOKIES_FILE) or _cookies_tem_login(YTDLP_COOKIES_FILE):
+        return
+    backup = _caminho_backup_cookies()
+    if not (os.path.isfile(backup) and _cookies_tem_login(backup)):
+        return
+    tmp = YTDLP_COOKIES_FILE + ".tmp"
+    shutil.copyfile(backup, tmp)
+    os.replace(tmp, YTDLP_COOKIES_FILE)
+    print(f"[cookies] arquivo atual sem sessão logada — restaurado do último upload validado ({backup})")
+
 def salvar_cookies(texto: str) -> Dict[str, Any]:
     """
     Valida e grava atomicamente o cookies.txt do YouTube.
@@ -47,6 +67,10 @@ def salvar_cookies(texto: str) -> Dict[str, Any]:
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(texto)
     os.replace(tmp, YTDLP_COOKIES_FILE)
+    # Backup do último upload validado: se um canal externo sobrescrever o
+    # cookies.txt com um export sem login, a conversão restaura daqui.
+    with open(_caminho_backup_cookies(), "w", encoding="utf-8") as f:
+        f.write(texto)
     return {
         "cookies": len(linhas),
         "mensagem": "Sessão logada detectada e cookies salvos. Teste a conversão agora.",
@@ -68,6 +92,9 @@ async def download_audio(url: str, audio_format: str, task_id: str) -> DownloadR
     """
     Executa o yt-dlp em um subprocesso seguro para extrair o áudio do vídeo na URL.
     """
+    # Recupera o último upload validado se o cookies.txt foi sobrescrito
+    # por um export sem sessão logada vindo de outro canal.
+    restaurar_cookies_se_sobrescrito()
     temp_dir = tempfile.mkdtemp(prefix=f"baixa_yt_{task_id}_")
 
     cmd = [
