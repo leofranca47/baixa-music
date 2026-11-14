@@ -20,8 +20,27 @@ Certifique-se de ter instalado no sistema operacional:
 - **yt-dlp** (ex: `sudo pacman -S yt-dlp` ou `sudo apt install yt-dlp` ou via pip)
 - **ffmpeg** (ex: `sudo pacman -S ffmpeg` ou `sudo apt install ffmpeg`)
 - **Node.js 20+** (runtime JS exigido pelo yt-dlp para os desafios do YouTube; habilitado via `--js-runtimes node`)
+- **Docker** (para o servidor de PO token — ver abaixo)
 
-### Cookies do YouTube (opcional)
+### Servidor de PO Token (bgutil) — obrigatório em produção
+
+O YouTube aplica bot-check a IPs de datacenter. O provider bgutil gera PO tokens
+que tornam o tráfego anônimo mais legítimo:
+
+```bash
+docker run -d --init --name bgutil-provider --restart unless-stopped \
+  -p 127.0.0.1:4416:4416 brainicism/bgutil-ytdlp-pot-provider
+```
+
+O plugin (`pip install bgutil-ytdlp-pot-provider`, já no requirements.txt) conecta
+automaticamente em 127.0.0.1:4416 e o app força a negociação com
+`youtube:fetch_pot=always`. Sem o container no ar o site ainda funciona, mas vídeos
+protegidos por bot-check falham.
+
+### Cookies do YouTube (necessário para vídeos com bot-check)
+
+Mesmo com PO token, o YouTube pode exigir sessão logada para vídeos específicos
+a partir de IPs de datacenter. Exporte os cookies de uma sessão logada:
 
 Exporte os cookies de uma sessão logada com uma extensão como "Get cookies.txt LOCALLY"
 e salve como `cookies.txt` na raiz do projeto (ou aponte `YTDLP_COOKIES_FILE` para outro

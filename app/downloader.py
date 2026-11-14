@@ -34,7 +34,10 @@ async def download_audio(url: str, audio_format: str, task_id: str) -> DownloadR
         "--extract-audio",
         "--audio-format", audio_format,
         "--audio-quality", "0",
-        "--extractor-args", "youtube:player_client=tv,android,web",
+        # fetch_pot=always: sessão anônima também negocia PO token com o
+        # provider bgutil (docker em 127.0.0.1:4416), contornando o bot-check
+        # que o YouTube aplica a IPs de datacenter.
+        "--extractor-args", "youtube:player_client=tv,android,web;fetch_pot=always",
         # O YouTube exige resolução de desafios JS (nsig/PO token); sem um
         # runtime JS a extração do cliente web falha ou perde formatos.
         "--js-runtimes", "node",
