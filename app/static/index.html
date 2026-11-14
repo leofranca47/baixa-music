@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baixa YouTube - Conversor de Áudio Local</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 selection:bg-rose-500 selection:text-white">
+  <div class="w-full max-w-xl">
+    
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold uppercase tracking-wider mb-3">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+        </svg>
+        yt-dlp + ffmpeg
+      </div>
+      <h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl text-white">Baixa YouTube</h1>
+      <p class="mt-2 text-sm text-slate-400">Extraia e converta áudios em alta fidelidade localmente no seu computador.</p>
+    </div>
+
+    <!-- Main Card -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-sm relative overflow-hidden">
+      <form id="convert-form" class="space-y-5">
+        <div>
+          <label for="url" class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-2">URL do Vídeo</label>
+          <div class="relative">
+            <input 
+              type="url" 
+              id="url" 
+              name="url" 
+              required
+              placeholder="https://www.youtube.com/watch?v=..."
+              class="w-full px-4 py-3 bg-slate-950/80 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-2">Formato de Áudio</label>
+          <div class="grid grid-cols-3 gap-3">
+            <label class="relative flex items-center justify-center p-3 text-sm font-medium border rounded-xl cursor-pointer transition-all border-rose-500 bg-rose-500/10 text-rose-300 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-500/20 has-[:checked]:text-white">
+              <input type="radio" name="format" value="mp3" checked class="sr-only" />
+              <span>MP3</span>
+            </label>
+            <label class="relative flex items-center justify-center p-3 text-sm font-medium border rounded-xl cursor-pointer transition-all border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-500/20 has-[:checked]:text-white">
+              <input type="radio" name="format" value="m4a" class="sr-only" />
+              <span>M4A</span>
+            </label>
+            <label class="relative flex items-center justify-center p-3 text-sm font-medium border rounded-xl cursor-pointer transition-all border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-500/20 has-[:checked]:text-white">
+              <input type="radio" name="format" value="wav" class="sr-only" />
+              <span>WAV</span>
+            </label>
+          </div>
+        </div>
+
+        <button 
+          type="submit" 
+          id="submit-btn"
+          class="w-full flex items-center justify-center gap-2 py-3 px-4 bg-rose-600 hover:bg-rose-500 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-rose-600/25 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        >
+          <svg id="btn-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          <svg id="btn-spinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span id="btn-text">Converter e Baixar</span>
+        </button>
+      </form>
+
+      <!-- Status and Progress feedback -->
+      <div id="status-card" class="hidden mt-6 p-4 rounded-xl border transition-all">
+        <div class="flex items-start gap-3">
+          <div id="status-icon" class="mt-0.5 shrink-0"></div>
+          <div class="flex-1 min-w-0">
+            <h4 id="status-title" class="text-sm font-semibold"></h4>
+            <p id="status-desc" class="text-xs text-slate-400 mt-1 break-words"></p>
+            <div id="download-actions" class="hidden mt-3">
+              <a 
+                id="manual-download-btn"
+                href="#"
+                class="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-all"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Baixar Novamente
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer note -->
+    <div class="text-center mt-6 text-xs text-slate-500">
+      Processamento local • Sem upload externo • Exclusão automática de temporários
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('convert-form');
+    const urlInput = document.getElementById('url');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnText = document.getElementById('btn-text');
+    const btnIcon = document.getElementById('btn-icon');
+    const btnSpinner = document.getElementById('btn-spinner');
+    const statusCard = document.getElementById('status-card');
+    const statusIcon = document.getElementById('status-icon');
+    const statusTitle = document.getElementById('status-title');
+    const statusDesc = document.getElementById('status-desc');
+    const downloadActions = document.getElementById('download-actions');
+    const manualDownloadBtn = document.getElementById('manual-download-btn');
+
+    // Radio styles handling
+    document.querySelectorAll('input[name="format"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        document.querySelectorAll('input[name="format"]').forEach(r => {
+          const label = r.closest('label');
+          if (r.checked) {
+            label.className = "relative flex items-center justify-center p-3 text-sm font-medium border rounded-xl cursor-pointer transition-all border-rose-500 bg-rose-500/20 text-white";
+          } else {
+            label.className = "relative flex items-center justify-center p-3 text-sm font-medium border rounded-xl cursor-pointer transition-all border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700";
+          }
+        });
+      });
+    });
+
+    function setLoading(isLoading) {
+      submitBtn.disabled = isLoading;
+      if (isLoading) {
+        btnText.textContent = "Baixando e convertendo áudio...";
+        btnIcon.classList.add('hidden');
+        btnSpinner.classList.remove('hidden');
+      } else {
+        btnText.textContent = "Converter e Baixar";
+        btnIcon.classList.remove('hidden');
+        btnSpinner.classList.add('hidden');
+      }
+    }
+
+    function showStatus(type, title, desc, downloadUrl = null) {
+      statusCard.classList.remove('hidden', 'bg-rose-500/10', 'border-rose-500/30', 'bg-emerald-500/10', 'border-emerald-500/30', 'bg-amber-500/10', 'border-amber-500/30');
+      downloadActions.classList.add('hidden');
+
+      if (type === 'loading') {
+        statusCard.classList.add('bg-amber-500/10', 'border-amber-500/30');
+        statusIcon.innerHTML = `<svg class="w-5 h-5 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        statusTitle.textContent = title;
+        statusTitle.className = "text-sm font-semibold text-amber-300";
+      } else if (type === 'success') {
+        statusCard.classList.add('bg-emerald-500/10', 'border-emerald-500/30');
+        statusIcon.innerHTML = `<svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+        statusTitle.textContent = title;
+        statusTitle.className = "text-sm font-semibold text-emerald-300";
+        if (downloadUrl) {
+          downloadActions.classList.remove('hidden');
+          manualDownloadBtn.href = downloadUrl;
+        }
+      } else {
+        statusCard.classList.add('bg-rose-500/10', 'border-rose-500/30');
+        statusIcon.innerHTML = `<svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`;
+        statusTitle.textContent = title;
+        statusTitle.className = "text-sm font-semibold text-rose-300";
+      }
+      statusDesc.textContent = desc;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = urlInput.value.trim();
+      const selectedFormat = document.querySelector('input[name="format"]:checked').value;
+
+      if (!url) return;
+
+      setLoading(true);
+      showStatus('loading', 'Processando com yt-dlp e ffmpeg', 'Aguarde enquanto extraímos e convertemos a faixa de áudio...');
+
+      try {
+        const response = await fetch('/api/convert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url, format: selectedFormat })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          const errorMsg = data.detail || 'Ocorreu um erro ao processar o vídeo.';
+          showStatus('error', 'Falha na Conversão', errorMsg);
+          return;
+        }
+
+        showStatus('success', 'Conversão Concluída!', `Título: ${data.title} (${data.format.toUpperCase()})`, data.download_url);
+
+        // Dispara download automaticamente
+        const downloadLink = document.createElement('a');
+        downloadLink.href = data.download_url;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+
+      } catch (err) {
+        showStatus('error', 'Erro de Conexão', 'Não foi possível conectar ao servidor local.');
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
