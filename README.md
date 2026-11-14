@@ -68,3 +68,4 @@ pytest
     }
     ```
 - `GET /api/download/{task_id}`: Faz o streaming do arquivo final para download no navegador e agenda a exclusão do arquivo temporário.
+# baixa-music
