@@ -1,6 +1,7 @@
 import asyncio
 import os
 import shutil
+import sys
 import tempfile
 from dataclasses import dataclass
 
@@ -23,11 +24,16 @@ async def download_audio(url: str, audio_format: str, task_id: str) -> DownloadR
     temp_dir = tempfile.mkdtemp(prefix=f"baixa_yt_{task_id}_")
 
     cmd = [
-        "yt-dlp",
+        sys.executable,
+        "-m",
+        "yt_dlp",
         "--no-playlist",
         "--extract-audio",
         "--audio-format", audio_format,
         "--audio-quality", "0",
+        "--extractor-args", "youtube:player_client=android,web",
+        "--retries", "3",
+        "--fragment-retries", "3",
         "--no-warnings",
         "-o", os.path.join(temp_dir, "%(title)s.%(ext)s"),
         str(url),
