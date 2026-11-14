@@ -67,6 +67,59 @@ def test_cleanup_task_files_non_existent():
     cleanup_task_files("/path/that/does/not/exist")
 
 @pytest.mark.anyio
+async def test_bot_check_error_includes_hint_when_cookies_have_no_login(tmp_path, monkeypatch):
+    # Bot-check com cookies.txt sem sessão logada deve anexar a dica de reexport.
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tPREF\tx\n")
+    monkeypatch.setattr("app.downloader.YTDLP_COOKIES_FILE", str(cookies))
+
+    fake_proc = MagicMock()
+    fake_proc.returncode = 1
+    fake_proc.communicate = AsyncMock(return_value=(b"", b"ERROR: [youtube] abc: Sign in to confirm you're not a bot"))
+
+    with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        mock_exec.return_value = fake_proc
+
+        with pytest.raises(DownloaderError) as exc_info:
+            await download_audio("https://www.youtube.com/watch?v=abc", "mp3", "task-hint")
+
+        assert "Sign in to confirm" in str(exc_info.value)
+        assert "NÃO contém sessão logada" in str(exc_info.value)
+        assert "SID/LOGIN_INFO" in str(exc_info.value)
+
+@pytest.mark.anyio
+async def test_bot_check_error_without_cookies_file_includes_hint(monkeypatch):
+    # Bot-check sem nenhum cookies.txt deve indicar como configurar.
+    monkeypatch.setattr("app.downloader.YTDLP_COOKIES_FILE", "/caminho/que/nao/existe.txt")
+
+    fake_proc = MagicMock()
+    fake_proc.returncode = 1
+    fake_proc.communicate = AsyncMock(return_value=(b"", b"ERROR: [youtube] abc: Sign in to confirm you're not a bot"))
+
+    with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        mock_exec.return_value = fake_proc
+
+        with pytest.raises(DownloaderError) as exc_info:
+            await download_audio("https://www.youtube.com/watch?v=abc", "mp3", "task-hint2")
+
+        assert "não há cookies.txt" in str(exc_info.value)
+
+@pytest.mark.anyio
+async def test_process_error_without_bot_check_has_no_hint(tmp_path, monkeypatch):
+    # Erros comuns (privado, indisponível) não devem ganhar a dica de cookies.
+    fake_proc = MagicMock()
+    fake_proc.returncode = 1
+    fake_proc.communicate = AsyncMock(return_value=(b"", b"ERROR: Private video"))
+
+    with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        mock_exec.return_value = fake_proc
+
+        with pytest.raises(DownloaderError) as exc_info:
+            await download_audio("https://www.youtube.com/watch?v=priv", "mp3", "task-plain")
+
+        assert "Aviso" not in str(exc_info.value)
+
+@pytest.mark.anyio
 async def test_download_audio_passes_cookies_and_js_runtime(tmp_path, monkeypatch):
     # O comando enviado ao yt-dlp deve carregar os cookies quando o arquivo
     # existe e habilitar um runtime JS para os desafios do YouTube.
