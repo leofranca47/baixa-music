@@ -102,6 +102,25 @@
       </div>
     </div>
 
+    <!-- Cookies Card -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-sm mt-6">
+      <h2 class="text-sm font-semibold text-slate-200 uppercase tracking-wider">Cookies do YouTube</h2>
+      <p class="mt-2 text-xs text-slate-400 leading-relaxed">
+        Alguns vídeos exigem sessão logada (bot-check do YouTube contra IPs de servidor).
+        Exporte os cookies de um navegador <strong class="text-slate-300">logado no youtube.com</strong>
+        (extensão "Get cookies.txt LOCALLY") e envie aqui — a validação é instantânea.
+      </p>
+      <form id="cookies-form" class="mt-4 flex flex-col sm:flex-row gap-3">
+        <input type="file" id="cookies-file" accept=".txt" required
+               class="flex-1 text-xs text-slate-400 file:mr-3 file:px-4 file:py-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-rose-600 file:text-white hover:file:bg-rose-500 file:cursor-pointer" />
+        <button type="submit" id="cookies-btn"
+                class="py-2 px-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50">
+          Validar e Salvar
+        </button>
+      </form>
+      <div id="cookies-status" class="hidden mt-4 p-3 rounded-xl border text-xs"></div>
+    </div>
+
     <!-- Footer note -->
     <div class="text-center mt-6 text-xs text-slate-500">
       Processamento local • Sem upload externo • Exclusão automática de temporários
@@ -214,6 +233,47 @@
         showStatus('error', 'Erro de Conexão', 'Não foi possível conectar ao servidor local.');
       } finally {
         setLoading(false);
+      }
+    });
+
+    // Cookies upload — validação instantânea no servidor
+    const cookiesForm = document.getElementById('cookies-form');
+    const cookiesFile = document.getElementById('cookies-file');
+    const cookiesBtn = document.getElementById('cookies-btn');
+    const cookiesStatus = document.getElementById('cookies-status');
+
+    function cookiesStatusRender(tipo, texto) {
+      const estilos = {
+        loading: ['bg-amber-500/10', 'border-amber-500/30', 'text-amber-300'],
+        ok: ['bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-300'],
+        erro: ['bg-rose-500/10', 'border-rose-500/30', 'text-rose-300'],
+      };
+      cookiesStatus.classList.remove('hidden');
+      cookiesStatus.className = 'mt-4 p-3 rounded-xl border text-xs ' + estilos[tipo].join(' ');
+      cookiesStatus.textContent = texto;
+    }
+
+    cookiesForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!cookiesFile.files.length) return;
+      cookiesBtn.disabled = true;
+      cookiesBtn.textContent = 'Validando...';
+      cookiesStatusRender('loading', 'Validando arquivo...');
+      try {
+        const fd = new FormData();
+        fd.append('file', cookiesFile.files[0]);
+        const response = await fetch('/api/cookies', { method: 'POST', body: fd });
+        const data = await response.json();
+        if (response.ok) {
+          cookiesStatusRender('ok', '✔ ' + data.mensagem + ' (' + data.cookies + ' cookies detectados)');
+        } else {
+          cookiesStatusRender('erro', '✘ ' + (data.detail || 'Falha ao validar o arquivo.'));
+        }
+      } catch (err) {
+        cookiesStatusRender('erro', '✘ Erro de conexão ao enviar o arquivo.');
+      } finally {
+        cookiesBtn.disabled = false;
+        cookiesBtn.textContent = 'Validar e Salvar';
       }
     });
   </script>

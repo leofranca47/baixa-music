@@ -4,6 +4,7 @@ import shutil
 import sys
 import tempfile
 from dataclasses import dataclass
+from typing import Any, Dict
 
 # Caminho do arquivo de cookies (pode ser configurado via env YTDLP_COOKIES_FILE)
 YTDLP_COOKIES_FILE = os.environ.get("YTDLP_COOKIES_FILE", "/opt/projects/baixa-music/cookies.txt")
@@ -19,6 +20,37 @@ def _cookies_tem_login(caminho: str) -> bool:
     except OSError:
         return False
     return any(f"\t{name}\t" in conteudo for name in _LOGIN_COOKIES)
+
+MAX_COOKIES_SIZE = 100 * 1024  # limite de upload do cookies.txt
+
+def salvar_cookies(texto: str) -> Dict[str, Any]:
+    """
+    Valida e grava atomicamente o cookies.txt do YouTube.
+
+    Recusa (sem sobrescrever o arquivo atual) exportações sem formato Netscape
+    ou sem cookies de sessão logada — export de navegador deslogado não
+    autentica no yt-dlp e é a causa mais comum do bot-check persistir.
+    """
+    linhas = [l for l in texto.splitlines() if l.strip() and not l.startswith("#")]
+    if not linhas or not any(".youtube.com" in l.split("\t")[0] for l in linhas):
+        raise ValueError(
+            "Arquivo não parece um cookies.txt do YouTube válido (formato Netscape)."
+        )
+    if not any(f"\t{name}\t" in texto for name in _LOGIN_COOKIES):
+        raise ValueError(
+            f"O arquivo tem {len(linhas)} cookies, mas NENHUM de sessão logada"
+            " (faltam SID/LOGIN_INFO/SAPISID). Provavelmente foi exportado de um"
+            " navegador deslogado — reexporte LOGADO no youtube.com e envie de novo."
+            " O arquivo atual NÃO foi substituído."
+        )
+    tmp = YTDLP_COOKIES_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(texto)
+    os.replace(tmp, YTDLP_COOKIES_FILE)
+    return {
+        "cookies": len(linhas),
+        "mensagem": "Sessão logada detectada e cookies salvos. Teste a conversão agora.",
+    }
 
 @dataclass
 class DownloadResult:

@@ -43,4 +43,5 @@ htmlcov/
 .DS_Store
 
 # Sessão do YouTube do usuário — nunca commitar
-cookies.txt
+cookies.txt*
+cookies.txt.tmp

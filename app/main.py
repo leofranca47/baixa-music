@@ -1,12 +1,18 @@
 import os
 import uuid
 from typing import Dict, Any
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.schemas import ConvertRequest, ConvertResponse, AudioFormat
-from app.downloader import download_audio, cleanup_task_files, DownloaderError
+from app.downloader import (
+    download_audio,
+    cleanup_task_files,
+    DownloaderError,
+    salvar_cookies,
+    MAX_COOKIES_SIZE,
+)
 
 app = FastAPI(title="Baixa YouTube", version="1.0.0")
 
@@ -64,6 +70,18 @@ async def convert_video(payload: ConvertRequest):
         format=payload.format,
         download_url=f"/api/download/{result.task_id}"
     )
+
+@app.post("/api/cookies")
+async def upload_cookies(file: UploadFile = File(...)):
+    """Recebe o cookies.txt exportado do navegador e valida na hora."""
+    raw = await file.read()
+    if len(raw) > MAX_COOKIES_SIZE:
+        raise HTTPException(status_code=413, detail="Arquivo maior que 100 KB — não parece um cookies.txt.")
+    try:
+        resultado = salvar_cookies(raw.decode("utf-8", errors="replace"))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return {"ok": True, **resultado}
 
 def _cleanup_task(task_id: str, temp_dir: str):
     """Executado em segundo plano após o streaming do arquivo."""

@@ -113,3 +113,53 @@ async def test_download_not_found():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/api/download/non-existent-id")
         assert response.status_code == 404
+
+@pytest.mark.anyio
+async def test_upload_cookies_valid_saves_file(monkeypatch, tmp_path):
+    destino = tmp_path / "cookies.txt"
+    monkeypatch.setattr("app.downloader.YTDLP_COOKIES_FILE", str(destino))
+    conteudo = (
+        "# Netscape HTTP Cookie File\n"
+        ".youtube.com\tTRUE\t/\tTRUE\t9999999999\tSID\tabc123\n"
+        ".youtube.com\tTRUE\t/\tTRUE\t9999999999\tLOGIN_INFO\txyz\n"
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/cookies",
+            files={"file": ("cookies.txt", conteudo.encode("utf-8"), "text/plain")},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ok"] is True
+        assert data["cookies"] == 2
+        assert "Sessão logada" in data["mensagem"]
+    assert destino.read_text(encoding="utf-8") == conteudo
+    assert not os.path.exists(str(destino) + ".tmp")
+
+@pytest.mark.anyio
+async def test_upload_cookies_without_login_is_rejected(monkeypatch, tmp_path):
+    destino = tmp_path / "cookies.txt"
+    destino.write_text("ORIGINAL\n", encoding="utf-8")
+    monkeypatch.setattr("app.downloader.YTDLP_COOKIES_FILE", str(destino))
+    conteudo = ".youtube.com\tTRUE\t/\tTRUE\t9999999999\tPREF\tvisitor\n"
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/cookies",
+            files={"file": ("cookies.txt", conteudo.encode("utf-8"), "text/plain")},
+        )
+        assert response.status_code == 422
+        assert "NENHUM de sessão logada" in response.json()["detail"]
+    # Export sem login não pode sobrescrever o arquivo atual
+    assert destino.read_text(encoding="utf-8") == "ORIGINAL\n"
+
+@pytest.mark.anyio
+async def test_upload_cookies_invalid_format(monkeypatch, tmp_path):
+    destino = tmp_path / "cookies.txt"
+    monkeypatch.setattr("app.downloader.YTDLP_COOKIES_FILE", str(destino))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/cookies",
+            files={"file": ("cookies.txt", b"qualquer coisa aleatoria", "text/plain")},
+        )
+        assert response.status_code == 422
+    assert not destino.exists()
