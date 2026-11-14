@@ -9,6 +9,7 @@ Aplicação web local minimalista (FastAPI + HTML5/Tailwind CSS) para baixar e e
 - **Interface Intuitiva:** Página única limpa com Tailwind CSS, feedback visual de processamento (spinner/status) e download automático imediato.
 - **Ciclo de Vida Limpo:** Os arquivos temporários são armazenados em diretórios temporários isolados e excluídos automaticamente após o término do streaming de download pelo navegador.
 - **Segurança:** Execução de subprocessos com lista explícita de argumentos (`asyncio.create_subprocess_exec`) sem shell (`shell=False`), prevenindo injeção de comandos.
+- **Autenticação Opcional via Cookies:** Se existir um arquivo de cookies do YouTube (Netscape format), ele é repassado ao yt-dlp com `--cookies`, contornando bot-check/403 em IPs de datacenter.
 
 ---
 
@@ -18,6 +19,14 @@ Certifique-se de ter instalado no sistema operacional:
 - **Python 3.10+**
 - **yt-dlp** (ex: `sudo pacman -S yt-dlp` ou `sudo apt install yt-dlp` ou via pip)
 - **ffmpeg** (ex: `sudo pacman -S ffmpeg` ou `sudo apt install ffmpeg`)
+- **Node.js 20+** (runtime JS exigido pelo yt-dlp para os desafios do YouTube; habilitado via `--js-runtimes node`)
+
+### Cookies do YouTube (opcional)
+
+Exporte os cookies de uma sessão logada com uma extensão como "Get cookies.txt LOCALLY"
+e salve como `cookies.txt` na raiz do projeto (ou aponte `YTDLP_COOKIES_FILE` para outro
+caminho). O arquivo é lido a cada conversão — atualizar o conteúdo não exige restart.
+Cookies expirados/rotacionados geram apenas um warning e o download segue anônimo.
 
 ---
 

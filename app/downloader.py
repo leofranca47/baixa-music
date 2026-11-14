@@ -5,6 +5,9 @@ import sys
 import tempfile
 from dataclasses import dataclass
 
+# Caminho do arquivo de cookies (pode ser configurado via env YTDLP_COOKIES_FILE)
+YTDLP_COOKIES_FILE = os.environ.get("YTDLP_COOKIES_FILE", "/opt/projects/baixa-music/cookies.txt")
+
 @dataclass
 class DownloadResult:
     task_id: str
@@ -31,13 +34,22 @@ async def download_audio(url: str, audio_format: str, task_id: str) -> DownloadR
         "--extract-audio",
         "--audio-format", audio_format,
         "--audio-quality", "0",
-        "--extractor-args", "youtube:player_client=android,web",
+        "--extractor-args", "youtube:player_client=tv,android,web",
+        # O YouTube exige resolução de desafios JS (nsig/PO token); sem um
+        # runtime JS a extração do cliente web falha ou perde formatos.
+        "--js-runtimes", "node",
         "--retries", "3",
         "--fragment-retries", "3",
         "--no-warnings",
         "-o", os.path.join(temp_dir, "%(title)s.%(ext)s"),
-        str(url),
     ]
+
+    # Cookies de sessão autenticada contornam bloqueios de IP de datacenter
+    # (bot-check/403); o arquivo é opcional e a flag só entra se existir.
+    if os.path.isfile(YTDLP_COOKIES_FILE):
+        cmd += ["--cookies", YTDLP_COOKIES_FILE]
+
+    cmd.append(str(url))
 
     try:
         process = await asyncio.create_subprocess_exec(

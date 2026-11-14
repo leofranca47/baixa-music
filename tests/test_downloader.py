@@ -65,3 +65,63 @@ async def test_download_audio_process_failure():
 def test_cleanup_task_files_non_existent():
     # Should not raise exception
     cleanup_task_files("/path/that/does/not/exist")
+
+@pytest.mark.anyio
+async def test_download_audio_passes_cookies_and_js_runtime(tmp_path, monkeypatch):
+    # O comando enviado ao yt-dlp deve carregar os cookies quando o arquivo
+    # existe e habilitar um runtime JS para os desafios do YouTube.
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n")
+    monkeypatch.setattr("app.downloader.YTDLP_COOKIES_FILE", str(cookies))
+
+    fake_proc = MagicMock()
+    fake_proc.returncode = 0
+    fake_proc.communicate = AsyncMock(return_value=(b"", b""))
+
+    with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        async def side_effect(*cmd, **kwargs):
+            for i, arg in enumerate(cmd):
+                if arg == "-o":
+                    out_dir = os.path.dirname(cmd[i + 1])
+                    with open(os.path.join(out_dir, "My Song.mp3"), "wb") as f:
+                        f.write(b"data")
+                    break
+            return fake_proc
+
+        mock_exec.side_effect = side_effect
+
+        result = await download_audio("https://www.youtube.com/watch?v=123", "mp3", "task-ck")
+        cmd = list(mock_exec.call_args[0])
+
+        assert "--js-runtimes" in cmd
+        assert cmd[cmd.index("--js-runtimes") + 1] == "node"
+        assert "--cookies" in cmd
+        assert cmd[cmd.index("--cookies") + 1] == str(cookies)
+        cleanup_task_files(result.temp_dir)
+
+@pytest.mark.anyio
+async def test_download_audio_without_cookies_file(monkeypatch):
+    # Sem arquivo de cookies a flag não deve ser passada ao yt-dlp.
+    monkeypatch.setattr("app.downloader.YTDLP_COOKIES_FILE", "/caminho/que/nao/existe.txt")
+
+    fake_proc = MagicMock()
+    fake_proc.returncode = 0
+    fake_proc.communicate = AsyncMock(return_value=(b"", b""))
+
+    with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        async def side_effect(*cmd, **kwargs):
+            for i, arg in enumerate(cmd):
+                if arg == "-o":
+                    out_dir = os.path.dirname(cmd[i + 1])
+                    with open(os.path.join(out_dir, "My Song.mp3"), "wb") as f:
+                        f.write(b"data")
+                    break
+            return fake_proc
+
+        mock_exec.side_effect = side_effect
+
+        result = await download_audio("https://www.youtube.com/watch?v=123", "mp3", "task-no-ck")
+        cmd = list(mock_exec.call_args[0])
+
+        assert "--cookies" not in cmd
+        cleanup_task_files(result.temp_dir)
